@@ -1,0 +1,37 @@
+name: clauseguard
+
+services:
+  database:
+    image: pgvector/pgvector:0.8.2-pg17-bookworm
+    environment:
+      POSTGRES_DB: clauseguard
+      POSTGRES_USER: clauseguard
+      POSTGRES_PASSWORD: clauseguard
+    ports:
+      - "5432:5432"
+    volumes:
+      - clauseguard_postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clauseguard -d clauseguard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      CLIENT_ORIGIN: http://localhost:5173
+      DATABASE_URL: postgresql://clauseguard:clauseguard@database:5432/clauseguard
+    ports:
+      - "3000:3000"
+    depends_on:
+      database:
+        condition: service_healthy
+
+volumes:
+  clauseguard_postgres_data:

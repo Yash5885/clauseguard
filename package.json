@@ -1,0 +1,18 @@
+{
+  "name": "clauseguard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-assisted freelance contract risk review",
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev": "concurrently -n web,api -c cyan,magenta \"pnpm dev:web\" \"pnpm dev:api\"",
+    "dev:web": "pnpm --filter @clauseguard/web dev",
+    "dev:api": "pnpm --filter @clauseguard/api dev",
+    "build": "pnpm --filter @clauseguard/web build",
+    "start": "pnpm --filter @clauseguard/api start",
+    "test": "pnpm --filter @clauseguard/api test"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  }
+}
