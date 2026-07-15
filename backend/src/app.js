@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import { createClerkRequestMiddleware } from "./config/clerk.js";
+import documentsRouter from "./routes/documents.js";
 import healthRouter from "./routes/health.js";
 import usersRouter from "./routes/users.js";
 
@@ -24,6 +25,7 @@ app.get("/", (_request, response) => {
 
 app.use("/api/health", healthRouter);
 app.use("/api", usersRouter);
+app.use("/api", documentsRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ error: "Route not found" });

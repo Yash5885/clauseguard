@@ -1,6 +1,6 @@
 # ClauseGuard
 
-ClauseGuard is a desktop-first web application for clause-by-clause risk reviews of freelance contracts. This repository currently contains Sections 8.1-8.2 of the MVP specification: the project foundation and managed authentication.
+ClauseGuard is a desktop-first web application for clause-by-clause risk reviews of freelance contracts. This repository currently contains Sections 8.1-8.3 of the MVP specification: the project foundation, managed authentication, and authenticated document text extraction.
 
 ## Stack
 
@@ -10,6 +10,7 @@ ClauseGuard is a desktop-first web application for clause-by-clause risk reviews
 - Local infrastructure: Docker Compose
 - AI provider: OpenAI, configured later through environment variables
 - Authentication: Clerk managed authentication
+- Document extraction: Multer, pdf-parse, and Mammoth
 
 ## Repository layout
 
@@ -42,6 +43,11 @@ The auth proof is available at:
 - `/sign-up` and `/sign-in` for Clerk's managed flows
 - `/dashboard` for the protected frontend route
 - `GET /api/me` for the protected API and first-login database sync
+- `POST /api/documents` for authenticated PDF/DOCX upload and raw-text extraction
+
+The upload endpoint expects a multipart form field named `file`, accepts PDF and
+DOCX files up to 10 MB, and stores extraction state and text in PostgreSQL. The
+protected dashboard contains a minimal upload form for testing the complete flow.
 
 Run the current checks with:
 
@@ -60,6 +66,6 @@ The development password in `compose.yaml` is intentionally local-only. Use mana
 
 ## Current boundary
 
-Only the foundation and managed authentication are implemented. Uploads, AI analysis, the contract history, and the full results UI belong to later numbered build items.
+The foundation, managed authentication, and document upload/text extraction are implemented. AI analysis, the contract history, and the full results UI belong to later numbered build items.
 
 The following are roadmap features and are intentionally excluded from the MVP: TypeScript, a mobile app, payment integration, a support chatbot, contract comparison, report export, and non-freelance contract types.

@@ -151,6 +151,145 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+function ContractUploadPanel({ getToken }) {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadResult, setUploadResult] = useState(null);
+  const [inputKey, setInputKey] = useState(0);
+
+  function selectFile(event) {
+    const file = event.target.files?.[0] ?? null;
+    setUploadError("");
+    setUploadResult(null);
+
+    if (!file) {
+      setSelectedFile(null);
+      return;
+    }
+
+    if (!/\.(pdf|docx)$/i.test(file.name)) {
+      setSelectedFile(null);
+      setUploadError("Choose a PDF or DOCX file.");
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setSelectedFile(null);
+      setUploadError("The selected file exceeds the 10 MB limit.");
+      return;
+    }
+
+    setSelectedFile(file);
+  }
+
+  async function uploadDocument(event) {
+    event.preventDefault();
+
+    if (!selectedFile) {
+      setUploadError("Choose a PDF or DOCX file first.");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError("");
+    setUploadResult(null);
+
+    try {
+      const token = await getToken();
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.error ?? "The document could not be uploaded");
+      }
+
+      setUploadResult(body.document);
+      setSelectedFile(null);
+      setInputKey((key) => key + 1);
+    } catch (error) {
+      setUploadError(error.message);
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  return (
+    <section className="mt-8 max-w-2xl rounded-2xl border border-white/10 bg-white/[0.04] p-6">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-emerald-300">
+          Text extraction
+        </p>
+        <h2 className="mt-2 text-xl font-semibold text-white">
+          Upload a contract
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-400">
+          PDF and DOCX files up to 10 MB. The extracted text is stored securely
+          for your account; risk analysis will be added in the next build step.
+        </p>
+      </div>
+
+      <form className="mt-6" onSubmit={uploadDocument}>
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-slate-950/40 px-6 py-10 text-center transition hover:border-emerald-300/50 hover:bg-emerald-300/[0.03]">
+          <span className="font-medium text-white">
+            {selectedFile ? selectedFile.name : "Choose a contract"}
+          </span>
+          <span className="mt-1 text-sm text-slate-500">
+            {selectedFile
+              ? `${(selectedFile.size / 1024).toFixed(1)} KB selected`
+              : "Click to browse for a PDF or DOCX"}
+          </span>
+          <input
+            key={inputKey}
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            className="sr-only"
+            disabled={isUploading}
+            name="file"
+            onChange={selectFile}
+            type="file"
+          />
+        </label>
+
+        <button
+          className="mt-4 w-full rounded-xl bg-emerald-300 px-5 py-3 font-medium text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!selectedFile || isUploading}
+          type="submit"
+        >
+          {isUploading ? "Extracting text..." : "Upload and extract text"}
+        </button>
+      </form>
+
+      {uploadError && (
+        <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">
+          {uploadError}
+        </div>
+      )}
+
+      {uploadResult && (
+        <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-4 text-emerald-100">
+          <p className="font-medium">Text extracted successfully</p>
+          <p className="mt-1 text-sm text-emerald-100/80">
+            {uploadResult.filename} · {uploadResult.extractedCharacters} characters
+            · status: {uploadResult.status}
+          </p>
+          <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-300">
+            {uploadResult.textPreview}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function DashboardPage() {
   const { getToken } = useAuth();
   const { user } = useUser();
@@ -242,6 +381,8 @@ function DashboardPage() {
           </dl>
         )}
       </section>
+
+      <ContractUploadPanel getToken={getToken} />
     </main>
   );
 }
