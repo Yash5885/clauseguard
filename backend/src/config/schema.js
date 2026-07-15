@@ -1,0 +1,13 @@
+import { getDatabasePool } from "./database.js";
+
+export async function ensureDatabaseSchema() {
+  await getDatabasePool().query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL DEFAULT '',
+      auth_provider_id TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
