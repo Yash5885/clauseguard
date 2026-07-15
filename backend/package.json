@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
+    "embed:baselines": "node scripts/generateBaselineEmbeddings.js",
+    "seed:baselines": "node scripts/seedBaselineClauses.js",
     "start": "node src/server.js",
     "test": "node --test"
   },
   "dependencies": {
     "@clerk/express": "^2.1.41",
+    "@google/genai": "^2.11.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

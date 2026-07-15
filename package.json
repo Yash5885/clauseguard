@@ -9,6 +9,8 @@
     "dev:web": "pnpm --filter @clauseguard/web dev",
     "dev:api": "pnpm --filter @clauseguard/api dev",
     "build": "pnpm --filter @clauseguard/web build",
+    "embed:baselines": "pnpm --filter @clauseguard/api embed:baselines",
+    "seed:baselines": "pnpm --filter @clauseguard/api seed:baselines",
     "start": "pnpm --filter @clauseguard/api start",
     "test": "pnpm --filter @clauseguard/api test"
   },
