@@ -4,6 +4,7 @@ import {
   analyzeDocument,
   DocumentAnalysisError,
 } from "../src/services/documentAnalysis.js";
+import { ExplanationError } from "../src/services/explanations.js";
 import { SegmentationError } from "../src/services/segmentation.js";
 import { EMBEDDING_DIMENSIONS } from "../src/config/ai.js";
 
@@ -25,10 +26,6 @@ function createAnalysisDatabase() {
       }
       if (sql.startsWith("DELETE FROM clauses")) {
         return { rows: [] };
-      }
-      if (sql.includes("FROM baseline_clauses")) {
-        const match = baselineMatches[parameters[1]];
-        return { rows: match ? [match] : [] };
       }
       if (sql.includes("INSERT INTO clauses")) {
         insertedClauses.push(parameters);
@@ -54,6 +51,10 @@ function createAnalysisDatabase() {
       return connection;
     },
     async query(sql, parameters) {
+      if (sql.includes("FROM baseline_clauses")) {
+        const match = baselineMatches[parameters[1]];
+        return { rows: match ? [match] : [] };
+      }
       if (sql.includes("SET status = 'failed'")) {
         this.failedUpdates.push(parameters);
         return { rows: [] };
@@ -89,6 +90,11 @@ test("document analysis stores clauses, matches, vectors, labels, and score", as
     embeddingModel: "gemini-embedding-2",
     segmentText: async () => segmentedClauses,
     embedClauses: async () => ({ embeddings }),
+    explainClauses: async () =>
+      new Map([
+        [1, "Fair revision terms include fewer rounds. This clause includes a notable number of rounds."],
+        [2, "Fair termination terms provide balanced exit rights. This clause differs substantially from that baseline."],
+      ]),
   });
 
   assert.deepEqual(
@@ -97,6 +103,9 @@ test("document analysis stores clauses, matches, vectors, labels, and score", as
   );
   assert.equal(result.overallRiskScore, 4);
   assert.equal(state.insertedClauses.length, 3);
+  assert.equal(state.insertedClauses[0][4], null);
+  assert.match(state.insertedClauses[1][4], /notable number of rounds/);
+  assert.match(state.insertedClauses[2][4], /differs substantially/);
   assert.equal(state.insertedEmbeddings.length, 3);
   assert.equal(state.insertedEmbeddings[0][2], "gemini-embedding-2");
   assert.deepEqual(state.documentUpdates[0].parameters, [4, "7"]);
@@ -120,5 +129,38 @@ test("empty or malformed segmentation marks the document failed", async () => {
   assert.deepEqual(state.database.failedUpdates[0], [
     "Gemini returned no contract clauses",
     "9",
+  ]);
+});
+
+test("malformed explanation output fails the analysis without partial clause writes", async () => {
+  const state = createAnalysisDatabase();
+  const vector = Array(EMBEDDING_DIMENSIONS).fill(0);
+  vector[0] = 1;
+
+  await assert.rejects(
+    analyzeDocument("10", "Contract text", {
+      database: state.database,
+      embeddingModel: "gemini-embedding-2",
+      segmentText: async () => [
+        {
+          category: "Termination",
+          clauseText: "The client may terminate immediately without payment.",
+          orderIndex: 0,
+        },
+      ],
+      embedClauses: async () => ({ embeddings: [vector] }),
+      explainClauses: async () => {
+        throw new ExplanationError("Gemini returned malformed explanation JSON");
+      },
+    }),
+    (error) =>
+      error instanceof DocumentAnalysisError &&
+      /could not generate grounded clause explanations/.test(error.message),
+  );
+
+  assert.equal(state.insertedClauses.length, 0);
+  assert.deepEqual(state.database.failedUpdates[0], [
+    "Gemini could not generate grounded clause explanations. Please retry.",
+    "10",
   ]);
 });

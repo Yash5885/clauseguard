@@ -2,7 +2,9 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: new URL("../../.env", import.meta.url) });
 
-const { getSegmentationModel } = await import("../src/config/ai.js");
+const { getExplanationModel, getSegmentationModel } = await import(
+  "../src/config/ai.js"
+);
 const { closeDatabaseConnection, getDatabasePool } = await import(
   "../src/config/database.js"
 );
@@ -52,6 +54,7 @@ async function loadDocumentResult(database, documentId, sample) {
         clauses.risk_label AS "riskLabel",
         ROUND(clauses.similarity_score::numeric, 4) AS similarity,
         clauses.clause_text AS "clauseText",
+        clauses.explanation,
         baseline_clauses.clause_text AS "closestBaselineText"
       FROM clauses
       LEFT JOIN baseline_clauses
@@ -111,6 +114,7 @@ async function runSamples() {
   console.log(
     JSON.stringify(
       {
+        explanationModel: getExplanationModel(),
         segmentationModel: getSegmentationModel(),
         sampleCount: results.length,
         results,

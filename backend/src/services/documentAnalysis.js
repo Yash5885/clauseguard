@@ -8,6 +8,10 @@ import {
   calculateOverallRiskScore,
   classifyClauseRisk,
 } from "./riskScoring.js";
+import {
+  ExplanationError,
+  generateFlaggedClauseExplanations,
+} from "./explanations.js";
 import { SegmentationError, segmentContractText } from "./segmentation.js";
 
 export class DocumentAnalysisError extends Error {
@@ -23,6 +27,10 @@ function getPublicAnalysisError(error) {
     return error.message;
   }
 
+  if (error instanceof ExplanationError) {
+    return "Gemini could not generate grounded clause explanations. Please retry.";
+  }
+
   if (/embedding|Gemini|baseline/i.test(error?.message ?? "")) {
     return "The AI analysis service could not process this contract. Please retry.";
   }
@@ -31,10 +39,10 @@ function getPublicAnalysisError(error) {
 }
 
 async function findClosestBaseline(
-  connection,
+  database,
   { category, embedding, embeddingModel },
 ) {
-  const result = await connection.query(
+  const result = await database.query(
     `
       SELECT
         id,
@@ -62,18 +70,16 @@ async function findClosestBaseline(
   };
 }
 
-async function storeAnalyzedClauses(
-  connection,
-  { documentId, embeddingModel, embeddings, segmentedClauses },
+async function compareClauses(
+  database,
+  { embeddingModel, embeddings, segmentedClauses },
 ) {
   const analyzedClauses = [];
-
-  await connection.query("DELETE FROM clauses WHERE document_id = $1", [documentId]);
 
   for (let index = 0; index < segmentedClauses.length; index += 1) {
     const clause = segmentedClauses[index];
     const embedding = embeddings[index];
-    const closestBaseline = await findClosestBaseline(connection, {
+    const closestBaseline = await findClosestBaseline(database, {
       category: clause.category,
       embedding,
       embeddingModel,
@@ -83,6 +89,45 @@ async function storeAnalyzedClauses(
       clauseText: clause.clauseText,
       similarity: closestBaseline?.similarity,
     });
+
+    analyzedClauses.push({
+      ...clause,
+      embedding,
+      riskLabel,
+      similarity: closestBaseline?.similarity ?? null,
+      closestBaseline,
+    });
+  }
+
+  return analyzedClauses;
+}
+
+function attachExplanations(analyzedClauses, explanations) {
+  return analyzedClauses.map((clause) => {
+    if (clause.riskLabel === "safe") {
+      return { ...clause, explanation: null };
+    }
+
+    const explanation = explanations.get(clause.orderIndex);
+    if (!explanation) {
+      throw new ExplanationError(
+        `No explanation was generated for flagged clause ${clause.orderIndex}`,
+      );
+    }
+
+    return { ...clause, explanation };
+  });
+}
+
+async function storeAnalyzedClauses(
+  connection,
+  { analyzedClauses, documentId, embeddingModel },
+) {
+  const storedClauses = [];
+
+  await connection.query("DELETE FROM clauses WHERE document_id = $1", [documentId]);
+
+  for (const clause of analyzedClauses) {
     const insertClauseResult = await connection.query(
       `
         INSERT INTO clauses (
@@ -95,17 +140,18 @@ async function storeAnalyzedClauses(
           closest_baseline_clause_id,
           similarity_score
         )
-        VALUES ($1, $2, $3, $4, NULL, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
       `,
       [
         documentId,
         clause.clauseText,
         clause.category,
-        riskLabel,
+        clause.riskLabel,
+        clause.explanation,
         clause.orderIndex,
-        closestBaseline?.id ?? null,
-        closestBaseline?.similarity ?? null,
+        clause.closestBaseline?.id ?? null,
+        clause.similarity,
       ],
     );
     const clauseId = insertClauseResult.rows[0].id;
@@ -115,19 +161,13 @@ async function storeAnalyzedClauses(
         INSERT INTO clause_embeddings (clause_id, embedding, embedding_model)
         VALUES ($1, $2::vector, $3)
       `,
-      [clauseId, serializePgVector(embedding), embeddingModel],
+      [clauseId, serializePgVector(clause.embedding), embeddingModel],
     );
 
-    analyzedClauses.push({
-      ...clause,
-      id: clauseId,
-      riskLabel,
-      similarity: closestBaseline?.similarity ?? null,
-      closestBaseline,
-    });
+    storedClauses.push({ ...clause, id: clauseId });
   }
 
-  return analyzedClauses;
+  return storedClauses;
 }
 
 export async function analyzeDocument(
@@ -137,6 +177,7 @@ export async function analyzeDocument(
     database = getDatabasePool(),
     embedClauses = createClauseEmbeddingsInBatches,
     embeddingModel = getEmbeddingModel(),
+    explainClauses = generateFlaggedClauseExplanations,
     segmentText = segmentContractText,
   } = {},
 ) {
@@ -153,19 +194,26 @@ export async function analyzeDocument(
       throw new Error("Embedding count does not match the segmented clause count");
     }
 
-    connection = await database.connect();
-    await connection.query("BEGIN");
-    transactionStarted = true;
-
-    const analyzedClauses = await storeAnalyzedClauses(connection, {
-      documentId,
+    const comparedClauses = await compareClauses(database, {
       embeddingModel,
       embeddings: embedded.embeddings,
       segmentedClauses,
     });
     const overallRiskScore = calculateOverallRiskScore(
-      analyzedClauses.map((clause) => clause.riskLabel),
+      comparedClauses.map((clause) => clause.riskLabel),
     );
+    const explanations = await explainClauses(comparedClauses);
+    const completedClauses = attachExplanations(comparedClauses, explanations);
+
+    connection = await database.connect();
+    await connection.query("BEGIN");
+    transactionStarted = true;
+
+    const analyzedClauses = await storeAnalyzedClauses(connection, {
+      analyzedClauses: completedClauses,
+      documentId,
+      embeddingModel,
+    });
 
     await connection.query(
       `

@@ -1,6 +1,6 @@
 # ClauseGuard
 
-ClauseGuard is a desktop-first web application for clause-by-clause risk reviews of freelance contracts. This repository currently contains the project foundation, managed authentication, authenticated document text extraction, the researched fair-clause baseline, Gemini clause segmentation, and pgvector similarity-based risk labeling.
+ClauseGuard is a desktop-first web application for clause-by-clause risk reviews of freelance contracts. This repository currently contains the project foundation, managed authentication, authenticated document text extraction, the researched fair-clause baseline, Gemini clause segmentation, pgvector similarity-based risk labeling, and grounded explanations for flagged clauses.
 
 ## Stack
 
@@ -13,6 +13,7 @@ ClauseGuard is a desktop-first web application for clause-by-clause risk reviews
 - Document extraction: Multer, pdf-parse, and Mammoth
 - Similarity foundation: Gemini embeddings and pgvector
 - Clause segmentation: Gemini 3.5 Flash structured JSON output
+- Flagged-clause explanations: Gemini 3.5 Flash grounded comparison output
 
 ## Repository layout
 
@@ -103,6 +104,13 @@ The document score is the specified weighted total: `risky = 3`, `caution = 1`,
 and `safe = 0`. See the [analysis pipeline documentation](docs/analysis-pipeline.md)
 for schema, edge cases, and design rationale.
 
+After scoring, only `caution` and `risky` clauses are sent to Gemini for a
+two-sentence explanation. The model receives the uploaded clause and its exact
+closest fair baseline, and must return separate structured sentences for the
+baseline norm and the specific deviation. `Uncategorized` clauses receive a
+no-baseline explanation and a recommendation for manual or professional review.
+Safe clauses skip this call and keep `explanation = NULL`.
+
 Run the three realistic sample contracts against Gemini and PostgreSQL with:
 
 ```bash
@@ -131,6 +139,6 @@ The development password in `compose.yaml` is intentionally local-only. Use mana
 
 ## Current boundary
 
-The foundation, managed authentication, document upload/text extraction, fair-clause baseline, clause segmentation, and similarity-based risk labeling are implemented. AI explanations, contract history, and the full results UI belong to later numbered build items.
+The foundation, managed authentication, document upload/text extraction, fair-clause baseline, clause segmentation, similarity-based risk labeling, and grounded flagged-clause explanations are implemented. Contract history and the full results UI belong to later numbered build items.
 
 The following are roadmap features and are intentionally excluded from the MVP: TypeScript, a mobile app, payment integration, a support chatbot, contract comparison, report export, and non-freelance contract types.

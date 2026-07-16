@@ -277,8 +277,8 @@ function ContractUploadPanel({ getToken }) {
           Upload a contract
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">
-          PDF and DOCX files up to 10 MB. Clause segmentation and similarity
-          analysis continue in the background after the text is extracted.
+          PDF and DOCX files up to 10 MB. Segmentation, similarity analysis,
+          risk scoring, and flagged-clause explanations run in the background.
         </p>
       </div>
 
@@ -323,7 +323,8 @@ function ContractUploadPanel({ getToken }) {
           <p className="font-medium">Analysis in progress</p>
           <p className="mt-1 text-sm text-sky-100/80">
             Text extracted from {uploadResult.filename}. Gemini is segmenting
-            clauses and comparing them with the fair baseline.
+            clauses, comparing them with the fair baseline, and explaining
+            anything flagged.
           </p>
         </div>
       )}
@@ -366,6 +367,16 @@ function ContractUploadPanel({ getToken }) {
                 <p className="mt-2 text-sm leading-6 text-slate-300">
                   {clause.clauseText}
                 </p>
+                {clause.explanation && (
+                  <div className="mt-3 rounded-md border border-amber-300/15 bg-amber-300/[0.06] p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-amber-200">
+                      Why this was flagged
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-amber-50/80">
+                      {clause.explanation}
+                    </p>
+                  </div>
+                )}
               </article>
             ))}
           </div>
