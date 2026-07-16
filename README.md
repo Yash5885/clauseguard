@@ -1,6 +1,6 @@
 # ClauseGuard
 
-ClauseGuard is a desktop-first web application for clause-by-clause risk reviews of freelance contracts. This repository currently contains Sections 8.1-8.4 of the MVP specification: the project foundation, managed authentication, authenticated document text extraction, and the researched fair-clause baseline.
+ClauseGuard is a desktop-first web application for clause-by-clause risk reviews of freelance contracts. This repository currently contains the project foundation, managed authentication, authenticated document text extraction, the researched fair-clause baseline, Gemini clause segmentation, and pgvector similarity-based risk labeling.
 
 ## Stack
 
@@ -12,6 +12,7 @@ ClauseGuard is a desktop-first web application for clause-by-clause risk reviews
 - Authentication: Clerk managed authentication
 - Document extraction: Multer, pdf-parse, and Mammoth
 - Similarity foundation: Gemini embeddings and pgvector
+- Clause segmentation: Gemini 3.5 Flash structured JSON output
 
 ## Repository layout
 
@@ -45,10 +46,12 @@ The auth proof is available at:
 - `/dashboard` for the protected frontend route
 - `GET /api/me` for the protected API and first-login database sync
 - `POST /api/documents` for authenticated PDF/DOCX upload and raw-text extraction
+- `GET /api/documents/:documentId` for protected processing status and clause results
 
 The upload endpoint expects a multipart form field named `file`, accepts PDF and
-DOCX files up to 10 MB, and stores extraction state and text in PostgreSQL. The
-protected dashboard contains a minimal upload form for testing the complete flow.
+DOCX files up to 10 MB, and returns HTTP 202 with status `processing` after text
+extraction. Clause analysis continues in a background task; the protected
+dashboard polls the document endpoint until the result is `complete` or `failed`.
 
 ## Fair-clause baseline
 
@@ -81,6 +84,31 @@ Uploaded contract clauses must later use the same `gemini-embedding-2` model,
 comparison. Embeddings from different models or formatting strategies do not
 share a comparable vector space.
 
+## Clause analysis pipeline
+
+Gemini 3.5 Flash segments extracted contract text into schema-constrained JSON.
+Each clause is stored in document order, embedded with the exact baseline
+formatter and `gemini-embedding-2` configuration, then compared only with
+baseline vectors in the same category using pgvector cosine distance.
+
+Similarity scores of 0.84 or higher are `safe`, scores from 0.72 to 0.84 are
+`caution`, and lower scores or missing category matches are `risky`. Narrow
+rules also catch clearly one-sided terms such as unlimited revisions, unlimited
+liability, client-only discretionary acceptance, and an explicit waiver of a
+kill fee. This matters because semantic embeddings can recognize the topic of
+an unfair clause while missing that its legal effect is the opposite of a fair
+baseline.
+
+The document score is the specified weighted total: `risky = 3`, `caution = 1`,
+and `safe = 0`. See the [analysis pipeline documentation](docs/analysis-pipeline.md)
+for schema, edge cases, and design rationale.
+
+Run the three realistic sample contracts against Gemini and PostgreSQL with:
+
+```bash
+pnpm test:samples
+```
+
 These clauses are comparison data for product development, not legal advice or
 a substitute for jurisdiction-specific review by a qualified lawyer. See the
 [baseline methodology](docs/baseline-methodology.md) for the research basis and
@@ -103,6 +131,6 @@ The development password in `compose.yaml` is intentionally local-only. Use mana
 
 ## Current boundary
 
-The foundation, managed authentication, document upload/text extraction, and fair-clause baseline are implemented. Clause segmentation, similarity-based risk labeling, AI explanations, contract history, and the full results UI belong to later numbered build items.
+The foundation, managed authentication, document upload/text extraction, fair-clause baseline, clause segmentation, and similarity-based risk labeling are implemented. AI explanations, contract history, and the full results UI belong to later numbered build items.
 
 The following are roadmap features and are intentionally excluded from the MVP: TypeScript, a mobile app, payment integration, a support chatbot, contract comparison, report export, and non-freelance contract types.

@@ -9,10 +9,12 @@ import { createDocxBuffer, createPdfBuffer } from "../test-support/fixtures.js";
 
 function createFakeDatabase() {
   const documents = [];
+  const analysisJobs = [];
   let nextId = 1;
 
   return {
     documents,
+    analysisJobs,
     async query(sql, parameters) {
       if (sql.includes("INSERT INTO documents")) {
         const document = {
@@ -23,6 +25,7 @@ function createFakeDatabase() {
           uploadDate: new Date("2026-07-16T00:00:00.000Z"),
           overallRiskScore: null,
           status: "processing",
+          analysisError: null,
         };
         documents.push(document);
         return { rows: [document] };
@@ -31,7 +34,7 @@ function createFakeDatabase() {
       if (sql.includes("SET original_text")) {
         const document = documents.find((item) => item.id === parameters[1]);
         document.originalText = parameters[0];
-        document.status = "complete";
+        document.status = "processing";
         return { rows: [document] };
       }
 
@@ -60,13 +63,30 @@ function createTestApp({ authenticated = true } = {}) {
   const processUpload = (clerkUserId, file) =>
     processDocumentUpload(clerkUserId, file, {
       database,
+      enqueueAnalysis: (documentId, originalText) => {
+        database.analysisJobs.push({ documentId, originalText });
+      },
       syncUser: async (userId) => {
         assert.equal(userId, "user_clerk_test");
         return { id: "42" };
       },
     });
   const app = express();
-  app.use("/api", createDocumentsRouter({ authMiddleware, processUpload }));
+  const getDocument = async (_clerkUserId, documentId) => {
+    const document = database.documents.find((item) => item.id === documentId);
+    return document
+      ? {
+          ...document,
+          clauses: [],
+          extractedCharacters: document.originalText.length,
+          riskSummary: { safe: 0, caution: 0, risky: 0 },
+        }
+      : null;
+  };
+  app.use(
+    "/api",
+    createDocumentsRouter({ authMiddleware, getDocument, processUpload }),
+  );
   app.use((error, _request, response, _next) => {
     response.status(500).json({ error: error.message });
   });
@@ -74,7 +94,7 @@ function createTestApp({ authenticated = true } = {}) {
   return { app, database };
 }
 
-test("authenticated PDF upload extracts and stores raw text", async () => {
+test("authenticated PDF upload extracts text and queues clause analysis", async () => {
   const { app, database } = createTestApp();
   const response = await request(app)
     .post("/api/documents")
@@ -83,13 +103,15 @@ test("authenticated PDF upload extracts and stores raw text", async () => {
       contentType: "application/pdf",
     });
 
-  assert.equal(response.status, 201, JSON.stringify(response.body));
+  assert.equal(response.status, 202, JSON.stringify(response.body));
   assert.equal(response.body.document.filename, "agreement.pdf");
-  assert.equal(response.body.document.status, "complete");
+  assert.equal(response.body.document.status, "processing");
   assert.match(response.body.document.textPreview, /Payment is due in thirty days/);
   assert.equal(database.documents.length, 1);
   assert.match(database.documents[0].originalText, /Payment is due in thirty days/);
-  assert.equal(database.documents[0].status, "complete");
+  assert.equal(database.documents[0].status, "processing");
+  assert.equal(database.analysisJobs.length, 1);
+  assert.match(database.analysisJobs[0].originalText, /Payment is due/);
 });
 
 test("authenticated DOCX upload extracts and stores raw text", async () => {
@@ -102,10 +124,27 @@ test("authenticated DOCX upload extracts and stores raw text", async () => {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
 
-  assert.equal(response.status, 201, JSON.stringify(response.body));
-  assert.equal(response.body.document.status, "complete");
+  assert.equal(response.status, 202, JSON.stringify(response.body));
+  assert.equal(response.body.document.status, "processing");
   assert.match(response.body.document.textPreview, /Either party may terminate/);
   assert.match(database.documents[0].originalText, /Either party may terminate/);
+  assert.equal(database.analysisJobs.length, 1);
+});
+
+test("authenticated users can poll their document analysis status", async () => {
+  const { app } = createTestApp();
+  await request(app)
+    .post("/api/documents")
+    .attach("file", createPdfBuffer("Payment is due in thirty days."), {
+      filename: "agreement.pdf",
+      contentType: "application/pdf",
+    });
+
+  const response = await request(app).get("/api/documents/1");
+
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.document.status, "processing");
+  assert.deepEqual(response.body.document.clauses, []);
 });
 
 test("unsupported file types are rejected clearly", async () => {

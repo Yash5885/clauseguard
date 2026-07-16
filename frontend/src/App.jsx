@@ -152,6 +152,11 @@ function ProtectedRoute({ children }) {
 }
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const RISK_BADGE_CLASSES = {
+  safe: "bg-emerald-300/15 text-emerald-200",
+  caution: "bg-amber-300/15 text-amber-200",
+  risky: "bg-red-400/15 text-red-200",
+};
 
 function ContractUploadPanel({ getToken }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -159,6 +164,45 @@ function ContractUploadPanel({ getToken }) {
   const [uploadError, setUploadError] = useState("");
   const [uploadResult, setUploadResult] = useState(null);
   const [inputKey, setInputKey] = useState(0);
+
+  useEffect(() => {
+    if (!uploadResult?.id || uploadResult.status !== "processing") {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let timeoutId;
+
+    async function pollAnalysis() {
+      try {
+        const token = await getToken();
+        const response = await fetch(`/api/documents/${uploadResult.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        const body = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(body.error ?? "Unable to load the contract analysis");
+        }
+
+        setUploadResult(body.document);
+        if (body.document.status === "processing") {
+          timeoutId = window.setTimeout(pollAnalysis, 1500);
+        }
+      } catch (error) {
+        if (error.name !== "AbortError") {
+          setUploadError(error.message);
+        }
+      }
+    }
+
+    timeoutId = window.setTimeout(pollAnalysis, 1000);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [getToken, uploadResult?.id, uploadResult?.status]);
 
   function selectFile(event) {
     const file = event.target.files?.[0] ?? null;
@@ -227,14 +271,14 @@ function ContractUploadPanel({ getToken }) {
     <section className="mt-8 max-w-2xl rounded-2xl border border-white/10 bg-white/[0.04] p-6">
       <div>
         <p className="text-xs font-medium uppercase tracking-wider text-emerald-300">
-          Text extraction
+          Contract analysis
         </p>
         <h2 className="mt-2 text-xl font-semibold text-white">
           Upload a contract
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-400">
-          PDF and DOCX files up to 10 MB. The extracted text is stored securely
-          for your account; risk analysis will be added in the next build step.
+          PDF and DOCX files up to 10 MB. Clause segmentation and similarity
+          analysis continue in the background after the text is extracted.
         </p>
       </div>
 
@@ -264,7 +308,7 @@ function ContractUploadPanel({ getToken }) {
           disabled={!selectedFile || isUploading}
           type="submit"
         >
-          {isUploading ? "Extracting text..." : "Upload and extract text"}
+          {isUploading ? "Uploading contract..." : "Upload and analyze contract"}
         </button>
       </form>
 
@@ -274,16 +318,57 @@ function ContractUploadPanel({ getToken }) {
         </div>
       )}
 
-      {uploadResult && (
+      {uploadResult?.status === "processing" && (
+        <div className="mt-4 rounded-xl border border-sky-300/20 bg-sky-300/10 p-4 text-sky-100">
+          <p className="font-medium">Analysis in progress</p>
+          <p className="mt-1 text-sm text-sky-100/80">
+            Text extracted from {uploadResult.filename}. Gemini is segmenting
+            clauses and comparing them with the fair baseline.
+          </p>
+        </div>
+      )}
+
+      {uploadResult?.status === "failed" && (
+        <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-red-200">
+          <p className="font-medium">Analysis failed</p>
+          <p className="mt-1 text-sm">
+            {uploadResult.analysisError ?? "The contract could not be analyzed."}
+          </p>
+        </div>
+      )}
+
+      {uploadResult?.status === "complete" && (
         <div className="mt-4 rounded-xl border border-emerald-300/20 bg-emerald-300/10 p-4 text-emerald-100">
-          <p className="font-medium">Text extracted successfully</p>
+          <p className="font-medium">Contract analysis complete</p>
           <p className="mt-1 text-sm text-emerald-100/80">
             {uploadResult.filename} · {uploadResult.extractedCharacters} characters
-            · status: {uploadResult.status}
+            · risk score: {uploadResult.overallRiskScore}
           </p>
-          <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-300">
-            {uploadResult.textPreview}
-          </p>
+          <div className="mt-4 space-y-3">
+            {uploadResult.clauses?.map((clause) => (
+              <article
+                className="rounded-lg border border-white/10 bg-slate-950/40 p-3"
+                key={clause.id}
+              >
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-slate-400">{clause.category}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-medium uppercase tracking-wide ${RISK_BADGE_CLASSES[clause.riskLabel]}`}
+                  >
+                    {clause.riskLabel}
+                  </span>
+                  {clause.similarity !== null && (
+                    <span className="text-slate-500">
+                      similarity {clause.similarity.toFixed(3)}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-300">
+                  {clause.clauseText}
+                </p>
+              </article>
+            ))}
+          </div>
         </div>
       )}
     </section>

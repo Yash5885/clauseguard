@@ -1,5 +1,6 @@
 import path from "node:path";
 import { getDatabasePool } from "../config/database.js";
+import { enqueueDocumentAnalysis } from "./documentAnalysis.js";
 import { extractTextFromFile, TextExtractionError } from "./textExtraction.js";
 import { syncClerkUser } from "./userSync.js";
 
@@ -17,6 +18,7 @@ export async function processDocumentUpload(
   file,
   {
     database = getDatabasePool(),
+    enqueueAnalysis = enqueueDocumentAnalysis,
     extractText = extractTextFromFile,
     syncUser = syncClerkUser,
   } = {},
@@ -59,13 +61,80 @@ export async function processDocumentUpload(
   const updateResult = await database.query(
     `
       UPDATE documents
-      SET original_text = $1, status = 'complete'
+      SET original_text = $1, status = 'processing', analysis_error = NULL
       WHERE id = $2
       RETURNING id, user_id AS "userId", filename, original_text AS "originalText",
-        upload_date AS "uploadDate", overall_risk_score AS "overallRiskScore", status
+        upload_date AS "uploadDate", overall_risk_score AS "overallRiskScore", status,
+        analysis_error AS "analysisError"
     `,
     [originalText, document.id],
   );
 
+  enqueueAnalysis(document.id, originalText, { database });
+
   return updateResult.rows[0];
+}
+
+export async function getDocumentAnalysis(
+  clerkUserId,
+  documentId,
+  { database = getDatabasePool() } = {},
+) {
+  if (!/^\d+$/.test(String(documentId))) {
+    return null;
+  }
+
+  const documentResult = await database.query(
+    `
+      SELECT
+        documents.id,
+        documents.filename,
+        documents.upload_date AS "uploadDate",
+        documents.overall_risk_score AS "overallRiskScore",
+        documents.status,
+        documents.analysis_error AS "analysisError",
+        LENGTH(documents.original_text)::integer AS "extractedCharacters",
+        LEFT(documents.original_text, 240) AS "textPreview"
+      FROM documents
+      INNER JOIN users ON users.id = documents.user_id
+      WHERE documents.id = $1
+        AND users.auth_provider_id = $2
+    `,
+    [documentId, clerkUserId],
+  );
+  const document = documentResult.rows[0];
+
+  if (!document) {
+    return null;
+  }
+
+  const clausesResult = await database.query(
+    `
+      SELECT
+        clauses.id,
+        clauses.clause_text AS "clauseText",
+        clauses.category,
+        clauses.risk_label AS "riskLabel",
+        clauses.explanation,
+        clauses.order_index AS "orderIndex",
+        clauses.similarity_score AS similarity,
+        baseline_clauses.id AS "closestBaselineId",
+        baseline_clauses.clause_text AS "closestBaselineText"
+      FROM clauses
+      LEFT JOIN baseline_clauses
+        ON baseline_clauses.id = clauses.closest_baseline_clause_id
+      WHERE clauses.document_id = $1
+      ORDER BY clauses.order_index
+    `,
+    [documentId],
+  );
+  const riskSummary = { safe: 0, caution: 0, risky: 0 };
+
+  for (const clause of clausesResult.rows) {
+    riskSummary[clause.riskLabel] += 1;
+    clause.similarity =
+      clause.similarity === null ? null : Number(clause.similarity);
+  }
+
+  return { ...document, clauses: clausesResult.rows, riskSummary };
 }

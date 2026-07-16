@@ -11,6 +11,7 @@
     "build": "pnpm --filter @clauseguard/web build",
     "embed:baselines": "pnpm --filter @clauseguard/api embed:baselines",
     "seed:baselines": "pnpm --filter @clauseguard/api seed:baselines",
+    "test:samples": "pnpm --filter @clauseguard/api test:samples",
     "start": "pnpm --filter @clauseguard/api start",
     "test": "pnpm --filter @clauseguard/api test"
   },

@@ -1,11 +1,15 @@
 import { Router } from "express";
 import { requireAuthenticatedUser } from "../middleware/auth.js";
 import { receiveDocumentUpload } from "../middleware/upload.js";
-import { processDocumentUpload } from "../services/documentService.js";
+import {
+  getDocumentAnalysis,
+  processDocumentUpload,
+} from "../services/documentService.js";
 import { TextExtractionError } from "../services/textExtraction.js";
 
 export function createDocumentsRouter({
   authMiddleware = requireAuthenticatedUser,
+  getDocument = getDocumentAnalysis,
   processUpload = processDocumentUpload,
 } = {}) {
   const documentsRouter = Router();
@@ -18,13 +22,14 @@ export function createDocumentsRouter({
       try {
         const document = await processUpload(request.clerkAuth.userId, request.file);
 
-        response.status(201).json({
+        response.status(202).json({
           document: {
             id: document.id,
             filename: document.filename,
             status: document.status,
             uploadDate: document.uploadDate,
             overallRiskScore: document.overallRiskScore,
+            analysisError: document.analysisError,
             extractedCharacters: document.originalText.length,
             textPreview: document.originalText.slice(0, 240),
           },
@@ -39,6 +44,28 @@ export function createDocumentsRouter({
           return;
         }
 
+        next(error);
+      }
+    },
+  );
+
+  documentsRouter.get(
+    "/documents/:documentId",
+    authMiddleware,
+    async (request, response, next) => {
+      try {
+        const document = await getDocument(
+          request.clerkAuth.userId,
+          request.params.documentId,
+        );
+
+        if (!document) {
+          response.status(404).json({ error: "Document not found" });
+          return;
+        }
+
+        response.json({ document });
+      } catch (error) {
         next(error);
       }
     },

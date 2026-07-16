@@ -7,6 +7,7 @@
     "dev": "node --watch src/server.js",
     "embed:baselines": "node scripts/generateBaselineEmbeddings.js",
     "seed:baselines": "node scripts/seedBaselineClauses.js",
+    "test:samples": "node scripts/testSampleContracts.js",
     "start": "node src/server.js",
     "test": "node --test"
   },

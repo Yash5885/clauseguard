@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import {
+  EMBEDDING_BATCH_DELAY_MS,
+  EMBEDDING_BATCH_SIZE,
   EMBEDDING_DIMENSIONS,
   EMBEDDING_TASK_PREFIX,
   getEmbeddingModel,
@@ -76,6 +78,74 @@ export async function createClauseEmbeddings(
     embeddings: orderedEmbeddings,
     model,
   };
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function isRateLimitError(error) {
+  return (
+    error?.status === 429 ||
+    error?.status === "RESOURCE_EXHAUSTED" ||
+    /429|RESOURCE_EXHAUSTED|quota/i.test(error?.message ?? "")
+  );
+}
+
+async function createEmbeddingBatchWithRetry(clauses, options) {
+  const maximumAttempts = 7;
+
+  for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+    try {
+      return await createClauseEmbeddings(clauses, options);
+    } catch (error) {
+      if (!isRateLimitError(error) || attempt === maximumAttempts) {
+        throw error;
+      }
+
+      await (options.waitForRetry ?? wait)(options.delayMs);
+    }
+  }
+
+  throw new Error("Gemini embedding retry loop exited unexpectedly");
+}
+
+export async function createClauseEmbeddingsInBatches(
+  clauses,
+  {
+    batchSize = EMBEDDING_BATCH_SIZE,
+    client = createGeminiClient(),
+    delayMs = EMBEDDING_BATCH_DELAY_MS,
+    dimensions = EMBEDDING_DIMENSIONS,
+    model = getEmbeddingModel(),
+    onBatchComplete,
+    waitForRetry = wait,
+  } = {},
+) {
+  if (!Array.isArray(clauses) || clauses.length === 0) {
+    throw new Error("At least one clause is required to generate embeddings");
+  }
+
+  const embeddings = [];
+
+  for (let start = 0; start < clauses.length; start += batchSize) {
+    const batch = clauses.slice(start, start + batchSize);
+    const result = await createEmbeddingBatchWithRetry(batch, {
+      client,
+      delayMs,
+      dimensions,
+      model,
+      waitForRetry,
+    });
+    embeddings.push(...result.embeddings);
+    onBatchComplete?.({ processed: embeddings.length, total: clauses.length });
+
+    if (start + batchSize < clauses.length) {
+      await waitForRetry(delayMs);
+    }
+  }
+
+  return { dimensions, embeddings, model };
 }
 
 export function serializePgVector(embedding) {
