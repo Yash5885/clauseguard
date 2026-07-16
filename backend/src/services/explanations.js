@@ -1,9 +1,14 @@
 import {
   EXPLANATION_BATCH_SIZE,
   getExplanationModel,
+  getGenerationFallbackModel,
   validateExplanationModel,
 } from "../config/ai.js";
 import { createGeminiClient } from "./embeddings.js";
+import {
+  generateStructuredContent,
+  GeminiCapacityError,
+} from "./geminiGeneration.js";
 import { UNCATEGORIZED } from "./segmentation.js";
 
 const MAX_EXPLANATION_SENTENCE_CHARACTERS = 600;
@@ -150,11 +155,15 @@ export function validateExplanationOutput(value, expectedClauses) {
   return explanations;
 }
 
-async function generateExplanationBatch(clauses, { client, model }) {
+async function generateExplanationBatch(
+  clauses,
+  { client, fallbackModel, model },
+) {
   let response;
 
   try {
-    response = await client.models.generateContent({
+    response = await generateStructuredContent({
+      client,
       model,
       contents: buildExplanationPrompt(clauses),
       config: {
@@ -166,11 +175,16 @@ async function generateExplanationBatch(clauses, { client, model }) {
           },
         },
       },
+    }, {
+      fallbackModel,
     });
   } catch (error) {
-    throw new ExplanationError("Gemini could not explain the flagged clauses", {
-      cause: error,
-    });
+    const message =
+      error instanceof GeminiCapacityError
+        ? "Clause Guard's explanation service is temporarily at capacity. Please try again later."
+        : "Clause Guard could not explain the flagged clauses. Please try again.";
+
+    throw new ExplanationError(message, { cause: error });
   }
 
   let parsed;
@@ -190,6 +204,7 @@ export async function generateFlaggedClauseExplanations(
   {
     batchSize = EXPLANATION_BATCH_SIZE,
     client = createGeminiClient(),
+    fallbackModel = getGenerationFallbackModel(),
     model = getExplanationModel(),
   } = {},
 ) {
@@ -212,6 +227,7 @@ export async function generateFlaggedClauseExplanations(
     const batch = flaggedClauses.slice(start, start + batchSize);
     const batchExplanations = await generateExplanationBatch(batch, {
       client,
+      fallbackModel,
       model,
     });
 

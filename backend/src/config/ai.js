@@ -1,6 +1,7 @@
 export const DEFAULT_EMBEDDING_MODEL = "gemini-embedding-2";
 export const DEFAULT_SEGMENTATION_MODEL = "gemini-3.5-flash";
 export const DEFAULT_EXPLANATION_MODEL = "gemini-3.5-flash";
+export const DEFAULT_GENERATION_FALLBACK_MODEL = "gemini-3.1-flash-lite";
 export const EMBEDDING_DIMENSIONS = 768;
 export const EMBEDDING_BATCH_SIZE = 16;
 export const EMBEDDING_BATCH_DELAY_MS = 10_000;
@@ -38,6 +39,13 @@ export function validateSegmentationModel(model = getSegmentationModel()) {
 
 export function getExplanationModel() {
   return process.env.GEMINI_EXPLANATION_MODEL?.trim() || DEFAULT_EXPLANATION_MODEL;
+}
+
+export function getGenerationFallbackModel() {
+  return (
+    process.env.GEMINI_GENERATION_FALLBACK_MODEL?.trim() ||
+    DEFAULT_GENERATION_FALLBACK_MODEL
+  );
 }
 
 export function validateExplanationModel(model = getExplanationModel()) {

@@ -1,10 +1,15 @@
 import {
+  getGenerationFallbackModel,
   getSegmentationModel,
   MAX_SEGMENTED_CLAUSES,
   validateSegmentationModel,
 } from "../config/ai.js";
 import { BASELINE_CATEGORIES } from "../data/baselineClauses.js";
 import { createGeminiClient } from "./embeddings.js";
+import {
+  generateStructuredContent,
+  GeminiCapacityError,
+} from "./geminiGeneration.js";
 
 export const UNCATEGORIZED = "Uncategorized";
 export const SEGMENTATION_CATEGORIES = [...BASELINE_CATEGORIES, UNCATEGORIZED];
@@ -73,9 +78,10 @@ export function validateSegmentedClauses(value) {
   const seenClauses = new Set();
 
   return value.map((item, orderIndex) => {
-    // Accept the two common SDK/model casing variants defensively, then map
+    // Accept common SDK/model field-name variants defensively, then map
     // everything to the application's clauseText field.
-    const returnedText = item?.clause_text ?? item?.clauseText ?? item?.text;
+    const returnedText =
+      item?.clause_text ?? item?.clauseText ?? item?.clause ?? item?.text;
     const clauseText = typeof returnedText === "string" ? returnedText.trim() : "";
     const category = item?.category;
 
@@ -107,6 +113,7 @@ export async function segmentContractText(
   contractText,
   {
     client = createGeminiClient(),
+    fallbackModel = getGenerationFallbackModel(),
     model = getSegmentationModel(),
   } = {},
 ) {
@@ -126,7 +133,8 @@ export async function segmentContractText(
 
   let response;
   try {
-    response = await client.models.generateContent({
+    response = await generateStructuredContent({
+      client,
       model,
       contents: buildSegmentationPrompt(normalizedText),
       config: {
@@ -138,11 +146,16 @@ export async function segmentContractText(
           },
         },
       },
+    }, {
+      fallbackModel,
     });
   } catch (error) {
-    throw new SegmentationError("Gemini could not segment this contract", {
-      cause: error,
-    });
+    const message =
+      error instanceof GeminiCapacityError
+        ? "Clause Guard's analysis service is temporarily at capacity. Please try again later."
+        : "Clause Guard could not analyze this contract. Please try again.";
+
+    throw new SegmentationError(message, { cause: error });
   }
 
   let parsed;

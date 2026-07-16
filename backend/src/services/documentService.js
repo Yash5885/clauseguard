@@ -75,6 +75,51 @@ export async function processDocumentUpload(
   return updateResult.rows[0];
 }
 
+export async function listUserDocuments(
+  clerkUserId,
+  { database = getDatabasePool(), limit = 50 } = {},
+) {
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+  const result = await database.query(
+    `
+      SELECT
+        documents.id,
+        documents.filename,
+        documents.upload_date AS "uploadDate",
+        documents.overall_risk_score AS "overallRiskScore",
+        documents.status,
+        documents.analysis_error AS "analysisError",
+        LENGTH(documents.original_text)::integer AS "extractedCharacters",
+        COUNT(clauses.id) FILTER (WHERE clauses.risk_label = 'safe')::integer AS "safeCount",
+        COUNT(clauses.id) FILTER (WHERE clauses.risk_label = 'caution')::integer AS "cautionCount",
+        COUNT(clauses.id) FILTER (WHERE clauses.risk_label = 'risky')::integer AS "riskyCount"
+      FROM documents
+      INNER JOIN users ON users.id = documents.user_id
+      LEFT JOIN clauses ON clauses.document_id = documents.id
+      WHERE users.auth_provider_id = $1
+      GROUP BY documents.id
+      ORDER BY documents.upload_date DESC
+      LIMIT $2
+    `,
+    [clerkUserId, safeLimit],
+  );
+
+  return result.rows.map((document) => ({
+    id: document.id,
+    filename: document.filename,
+    uploadDate: document.uploadDate,
+    overallRiskScore: document.overallRiskScore,
+    status: document.status,
+    analysisError: document.analysisError,
+    extractedCharacters: document.extractedCharacters,
+    riskSummary: {
+      safe: Number(document.safeCount) || 0,
+      caution: Number(document.cautionCount) || 0,
+      risky: Number(document.riskyCount) || 0,
+    },
+  }));
+}
+
 export async function getDocumentAnalysis(
   clerkUserId,
   documentId,

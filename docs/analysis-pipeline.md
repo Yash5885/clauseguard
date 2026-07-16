@@ -8,7 +8,9 @@ is a product risk signal, not legal advice or a substitute for lawyer review.
 1. The authenticated upload route extracts PDF or DOCX text and stores the
    document with `status = processing`.
 2. An in-process background task sends the text to `gemini-3.5-flash` with a
-   JSON schema and an instruction to return only JSON.
+   JSON schema and an instruction to return only JSON. If that model returns a
+   capacity/rate-limit error, the same schema-constrained request automatically
+   falls back to `gemini-3.1-flash-lite`.
 3. The model returns ordered clause text plus one of the eight baseline
    categories. `Uncategorized` is allowed only when no supported category fits.
 4. Each clause is embedded with `gemini-embedding-2`, 768 dimensions, and the
@@ -34,10 +36,10 @@ cannot silently enter later comparisons.
 
 ## Risk decision
 
-- `safe`: cosine similarity is at least 0.84.
-- `caution`: similarity is at least 0.72 but below 0.84, or a high-similarity
+- `safe`: cosine similarity is at least 0.89.
+- `caution`: similarity is at least 0.82 but below 0.89, or a high-similarity
   clause contains a bounded but notable deviation such as six revision rounds.
-- `risky`: similarity is below 0.72, there is no same-category baseline match,
+- `risky`: similarity is below 0.82, there is no same-category baseline match,
   the clause is uncategorized, or a narrow rule detects clearly one-sided legal
   effect such as unlimited liability or an explicit no-kill-fee term.
 
@@ -45,6 +47,12 @@ The narrow overrides are deliberate. Embeddings measure semantic relatedness,
 so "a fair 25% kill fee" and "no kill fee is payable" can have high similarity
 even though their effects are opposite. The rules cover only explicit wording;
 the explanation stage describes the stored evidence but cannot change the label.
+
+The thresholds are calibrated against the checked-in regression contracts and
+stored Gemini vectors. Their similarity distribution is higher than the initial
+prototype assumed, so the 0.82-0.89 band captures moderate deviations without
+weakening explicit one-sided-term overrides. Clause text is whitespace-normalized
+before those deterministic checks so PDF line breaks cannot bypass a rule.
 
 ## Explanation grounding
 
@@ -78,6 +86,9 @@ caution clauses contribute 1, and safe clauses contribute 0.
 - Extracted text is capped at 750,000 characters before the model call.
 - Embeddings are generated in rate-aware batches of 16 with retry/pacing for
   the Gemini free tier.
+- Generation quotas are model-specific. Segmentation and explanations use the
+  stable Flash-Lite fallback when the primary model is rate limited; if both
+  are unavailable, the document fails with a provider-neutral capacity message.
 
 The background task is appropriate for this single-instance MVP. A deployed
 multi-instance service should replace it with a durable job queue so analysis
@@ -87,5 +98,7 @@ survives process restarts.
 
 - [Gemini structured output](https://ai.google.dev/gemini-api/docs/generate-content/structured-output)
 - [Gemini 3.5 Flash model](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash)
+- [Gemini 3.1 Flash-Lite model](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite)
+- [Gemini API rate limits](https://ai.google.dev/gemini-api/docs/rate-limits)
 - [Gemini embeddings](https://ai.google.dev/gemini-api/docs/embeddings)
 - [pgvector cosine distance and HNSW](https://github.com/pgvector/pgvector)

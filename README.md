@@ -129,6 +129,10 @@ pnpm test
 pnpm build
 ```
 
+For production deployment to Vercel plus Render or Railway, including the exact
+environment-variable split and fresh-database initialization steps, see
+[DEPLOYMENT.md](DEPLOYMENT.md).
+
 To build and start the containerized frontend, API, and PostgreSQL:
 
 ```bash

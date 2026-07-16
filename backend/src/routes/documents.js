@@ -3,6 +3,7 @@ import { requireAuthenticatedUser } from "../middleware/auth.js";
 import { receiveDocumentUpload } from "../middleware/upload.js";
 import {
   getDocumentAnalysis,
+  listUserDocuments,
   processDocumentUpload,
 } from "../services/documentService.js";
 import { TextExtractionError } from "../services/textExtraction.js";
@@ -10,6 +11,7 @@ import { TextExtractionError } from "../services/textExtraction.js";
 export function createDocumentsRouter({
   authMiddleware = requireAuthenticatedUser,
   getDocument = getDocumentAnalysis,
+  listDocuments = listUserDocuments,
   processUpload = processDocumentUpload,
 } = {}) {
   const documentsRouter = Router();
@@ -44,6 +46,19 @@ export function createDocumentsRouter({
           return;
         }
 
+        next(error);
+      }
+    },
+  );
+
+  documentsRouter.get(
+    "/documents",
+    authMiddleware,
+    async (request, response, next) => {
+      try {
+        const documents = await listDocuments(request.clerkAuth.userId);
+        response.json({ documents });
+      } catch (error) {
         next(error);
       }
     },

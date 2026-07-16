@@ -18,7 +18,7 @@ test("segmentContractText requests schema-constrained JSON and preserves order",
         return {
           text: JSON.stringify([
             {
-              clause_text: "Payment is due within fourteen days.",
+              clause: "Payment is due within fourteen days.",
               category: "Payment Terms",
             },
             {
@@ -72,6 +72,70 @@ test("malformed and empty Gemini segmentation output is rejected clearly", async
         { clauseText: "Governing law applies.", category: "Governing Law" },
       ]),
     /unsupported category/,
+  );
+});
+
+test("segmentation falls back to Flash-Lite when the primary model is unavailable", async () => {
+  const requestedModels = [];
+  const client = {
+    models: {
+      async generateContent(parameters) {
+        requestedModels.push(parameters.model);
+
+        if (parameters.model === "gemini-3.5-flash") {
+          const error = new Error("UNAVAILABLE: model is experiencing high demand");
+          error.status = 503;
+          throw error;
+        }
+
+        return {
+          text: JSON.stringify([
+            {
+              clause_text: "Payment is due within fourteen days.",
+              category: "Payment Terms",
+            },
+          ]),
+        };
+      },
+    },
+  };
+
+  const clauses = await segmentContractText("Payment terms", {
+    client,
+    fallbackModel: "gemini-3.1-flash-lite",
+    model: "gemini-3.5-flash",
+  });
+
+  assert.deepEqual(requestedModels, [
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+  ]);
+  assert.equal(clauses.length, 1);
+});
+
+test("segmentation returns provider-neutral copy when all models are at capacity", async () => {
+  const client = {
+    models: {
+      async generateContent() {
+        const error = new Error("RESOURCE_EXHAUSTED: quota exceeded");
+        error.status = 429;
+        throw error;
+      },
+    },
+  };
+
+  await assert.rejects(
+    segmentContractText("Payment terms", {
+      client,
+      fallbackModel: "gemini-3.1-flash-lite",
+      model: "gemini-3.5-flash",
+    }),
+    (error) =>
+      error instanceof SegmentationError &&
+      /Clause Guard's analysis service is temporarily at capacity/.test(
+        error.message,
+      ) &&
+      !/Gemini/.test(error.message),
   );
 });
 

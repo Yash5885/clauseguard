@@ -10,7 +10,9 @@ RUN pnpm install --frozen-lockfile --filter @clauseguard/web
 COPY frontend ./frontend
 
 ARG VITE_CLERK_PUBLISHABLE_KEY
+ARG VITE_API_BASE_URL
 ENV VITE_CLERK_PUBLISHABLE_KEY=$VITE_CLERK_PUBLISHABLE_KEY
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN pnpm --filter @clauseguard/web build
 
 FROM nginx:1.29-alpine

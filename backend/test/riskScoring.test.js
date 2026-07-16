@@ -12,8 +12,8 @@ test("similarity thresholds map clauses to safe, caution, and risky", () => {
   };
 
   assert.equal(classifyClauseRisk({ ...base, similarity: 0.9 }), "safe");
-  assert.equal(classifyClauseRisk({ ...base, similarity: 0.78 }), "caution");
-  assert.equal(classifyClauseRisk({ ...base, similarity: 0.6 }), "risky");
+  assert.equal(classifyClauseRisk({ ...base, similarity: 0.85 }), "caution");
+  assert.equal(classifyClauseRisk({ ...base, similarity: 0.78 }), "risky");
   assert.equal(
     classifyClauseRisk({ ...base, category: "Uncategorized", similarity: null }),
     "risky",
@@ -46,6 +46,42 @@ test("clearly one-sided terms override a high semantic similarity", () => {
     }),
     "risky",
   );
+  assert.equal(
+    classifyClauseRisk({
+      category: "Liability",
+      clauseText:
+        "The Contractor's liability is unlimited and includes lost profits and all legal fees.",
+      similarity: 0.96,
+    }),
+    "risky",
+  );
+  assert.equal(
+    classifyClauseRisk({
+      category: "Liability",
+      clauseText:
+        "The Contractor will indemnify the Client from every claim or loss, even when caused partly by the Client.",
+      similarity: 0.94,
+    }),
+    "risky",
+  );
+  assert.equal(
+    classifyClauseRisk({
+      category: "Termination",
+      clauseText:
+        "The Client may terminate at any time without cause, while the Contractor may terminate only after sixty days' notice.",
+      similarity: 0.92,
+    }),
+    "risky",
+  );
+  assert.equal(
+    classifyClauseRisk({
+      category: "Liability",
+      clauseText:
+        "10. Indemnity\nThe Contractor will indemnify the Client from every claim or loss,\neven when caused partly by the Client.",
+      similarity: 0.94,
+    }),
+    "risky",
+  );
 });
 
 test("notable but non-extreme deviations become caution", () => {
@@ -54,6 +90,23 @@ test("notable but non-extreme deviations become caution", () => {
       category: "Revisions",
       clauseText: "The fixed fee includes six revision rounds.",
       similarity: 0.94,
+    }),
+    "caution",
+  );
+  assert.equal(
+    classifyClauseRisk({
+      category: "Payment Terms",
+      clauseText: "The Client will pay each invoice within 60 calendar days.",
+      similarity: 0.93,
+    }),
+    "caution",
+  );
+  assert.equal(
+    classifyClauseRisk({
+      category: "Termination",
+      clauseText:
+        "The agreement automatically renews for one year unless either party gives sixty days' notice.",
+      similarity: 0.92,
     }),
     "caution",
   );

@@ -10,11 +10,16 @@ export function getDatabasePool() {
   }
 
   if (!pool) {
+    const useSsl = ["1", "true", "require"].includes(
+      process.env.DATABASE_SSL?.trim().toLowerCase(),
+    );
+
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       max: 10,
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
+      ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
     });
   }
 

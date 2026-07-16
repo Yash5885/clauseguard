@@ -4,7 +4,10 @@ import express from "express";
 import request from "supertest";
 import { MAX_UPLOAD_BYTES } from "../src/middleware/upload.js";
 import { createDocumentsRouter } from "../src/routes/documents.js";
-import { processDocumentUpload } from "../src/services/documentService.js";
+import {
+  listUserDocuments,
+  processDocumentUpload,
+} from "../src/services/documentService.js";
 import { createDocxBuffer, createPdfBuffer } from "../test-support/fixtures.js";
 
 function createFakeDatabase() {
@@ -49,7 +52,7 @@ function createFakeDatabase() {
   };
 }
 
-function createTestApp({ authenticated = true } = {}) {
+function createTestApp({ authenticated = true, documentHistory } = {}) {
   const database = createFakeDatabase();
   const authMiddleware = (requestObject, response, next) => {
     if (!authenticated) {
@@ -83,9 +86,27 @@ function createTestApp({ authenticated = true } = {}) {
         }
       : null;
   };
+  const listDocuments = async (clerkUserId) => {
+    assert.equal(clerkUserId, "user_clerk_test");
+    return documentHistory ?? [...database.documents].reverse().map((document) => ({
+      id: document.id,
+      filename: document.filename,
+      uploadDate: document.uploadDate,
+      overallRiskScore: document.overallRiskScore,
+      status: document.status,
+      analysisError: document.analysisError,
+      extractedCharacters: document.originalText.length,
+      riskSummary: { safe: 0, caution: 0, risky: 0 },
+    }));
+  };
   app.use(
     "/api",
-    createDocumentsRouter({ authMiddleware, getDocument, processUpload }),
+    createDocumentsRouter({
+      authMiddleware,
+      getDocument,
+      listDocuments,
+      processUpload,
+    }),
   );
   app.use((error, _request, response, _next) => {
     response.status(500).json({ error: error.message });
@@ -145,6 +166,74 @@ test("authenticated users can poll their document analysis status", async () => 
   assert.equal(response.status, 200, JSON.stringify(response.body));
   assert.equal(response.body.document.status, "processing");
   assert.deepEqual(response.body.document.clauses, []);
+});
+
+test("authenticated users can list their document history newest first", async () => {
+  const documentHistory = [
+    {
+      id: "2",
+      filename: "latest-agreement.pdf",
+      uploadDate: "2026-07-16T08:30:00.000Z",
+      overallRiskScore: 4,
+      status: "complete",
+      analysisError: null,
+      extractedCharacters: 4200,
+      riskSummary: { safe: 5, caution: 1, risky: 1 },
+    },
+    {
+      id: "1",
+      filename: "older-agreement.docx",
+      uploadDate: "2026-07-15T08:30:00.000Z",
+      overallRiskScore: 0,
+      status: "complete",
+      analysisError: null,
+      extractedCharacters: 2800,
+      riskSummary: { safe: 6, caution: 0, risky: 0 },
+    },
+  ];
+  const { app } = createTestApp({ documentHistory });
+
+  const response = await request(app).get("/api/documents");
+
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.deepEqual(response.body.documents, documentHistory);
+});
+
+test("document history is user-scoped, capped, and includes normalized risk counts", async () => {
+  const database = {
+    async query(sql, parameters) {
+      assert.match(sql, /users\.auth_provider_id = \$1/);
+      assert.match(sql, /ORDER BY documents\.upload_date DESC/);
+      assert.deepEqual(parameters, ["user_clerk_test", 100]);
+      return {
+        rows: [
+          {
+            id: "9",
+            filename: "client-agreement.pdf",
+            uploadDate: "2026-07-16T09:00:00.000Z",
+            overallRiskScore: 5,
+            status: "complete",
+            analysisError: null,
+            extractedCharacters: 5100,
+            safeCount: "7",
+            cautionCount: "2",
+            riskyCount: "1",
+          },
+        ],
+      };
+    },
+  };
+
+  const documents = await listUserDocuments("user_clerk_test", {
+    database,
+    limit: 500,
+  });
+
+  assert.deepEqual(documents[0].riskSummary, {
+    safe: 7,
+    caution: 2,
+    risky: 1,
+  });
 });
 
 test("unsupported file types are rejected clearly", async () => {

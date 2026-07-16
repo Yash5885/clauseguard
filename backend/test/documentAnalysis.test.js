@@ -14,7 +14,7 @@ function createAnalysisDatabase() {
   const documentUpdates = [];
   const baselineMatches = {
     "Payment Terms": { id: "101", clauseText: "Fair payment", similarity: "0.90" },
-    Revisions: { id: "102", clauseText: "Fair revisions", similarity: "0.78" },
+    Revisions: { id: "102", clauseText: "Fair revisions", similarity: "0.85" },
     Termination: { id: "103", clauseText: "Fair termination", similarity: "0.60" },
   };
   let nextClauseId = 1;
@@ -123,11 +123,12 @@ test("empty or malformed segmentation marks the document failed", async () => {
       },
     }),
     (error) =>
-      error instanceof DocumentAnalysisError && /no contract clauses/.test(error.message),
+      error instanceof DocumentAnalysisError &&
+      /Clause Guard could not analyze this contract/.test(error.message),
   );
 
   assert.deepEqual(state.database.failedUpdates[0], [
-    "Gemini returned no contract clauses",
+    "Clause Guard could not analyze this contract. Please try again.",
     "9",
   ]);
 });
@@ -155,12 +156,14 @@ test("malformed explanation output fails the analysis without partial clause wri
     }),
     (error) =>
       error instanceof DocumentAnalysisError &&
-      /could not generate grounded clause explanations/.test(error.message),
+      /Clause Guard could not generate grounded clause explanations/.test(
+        error.message,
+      ),
   );
 
   assert.equal(state.insertedClauses.length, 0);
   assert.deepEqual(state.database.failedUpdates[0], [
-    "Gemini could not generate grounded clause explanations. Please retry.",
+    "Clause Guard could not generate grounded clause explanations. Please try again.",
     "10",
   ]);
 });

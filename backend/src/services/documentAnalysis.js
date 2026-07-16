@@ -24,18 +24,28 @@ export class DocumentAnalysisError extends Error {
 
 function getPublicAnalysisError(error) {
   if (error instanceof SegmentationError) {
-    return error.message;
+    if (/^Clause Guard/.test(error.message)) {
+      return error.message;
+    }
+
+    if (/empty|character analysis limit/i.test(error.message)) {
+      return error.message;
+    }
+
+    return "Clause Guard could not analyze this contract. Please try again.";
   }
 
   if (error instanceof ExplanationError) {
-    return "Gemini could not generate grounded clause explanations. Please retry.";
+    return /^Clause Guard/.test(error.message)
+      ? error.message
+      : "Clause Guard could not generate grounded clause explanations. Please try again.";
   }
 
   if (/embedding|Gemini|baseline/i.test(error?.message ?? "")) {
-    return "The AI analysis service could not process this contract. Please retry.";
+    return "Clause Guard could not process this contract. Please try again.";
   }
 
-  return "Contract analysis failed. Please retry.";
+  return "Clause Guard could not complete this review. Please try again.";
 }
 
 async function findClosestBaseline(

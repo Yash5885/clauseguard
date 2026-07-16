@@ -2,18 +2,20 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import { createClerkRequestMiddleware } from "./config/clerk.js";
+import { createCorsOptions } from "./config/cors.js";
 import documentsRouter from "./routes/documents.js";
 import healthRouter from "./routes/health.js";
 import usersRouter from "./routes/users.js";
 
 const app = express();
-const clientOrigin = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
-
 // Clerk must inspect the original request before other middleware changes it.
 app.use(createClerkRequestMiddleware());
 app.disable("x-powered-by");
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 app.use(helmet());
-app.use(cors({ origin: clientOrigin }));
+app.use(cors(createCorsOptions()));
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/", (_request, response) => {

@@ -1,7 +1,10 @@
 import { UNCATEGORIZED } from "./segmentation.js";
 
-export const SAFE_SIMILARITY_THRESHOLD = 0.84;
-export const CAUTION_SIMILARITY_THRESHOLD = 0.72;
+// Calibrated against the stored Gemini embedding distribution: fair clauses in
+// the regression corpus cluster at 0.89+, while moderate deviations generally
+// land between 0.82 and 0.89. Explicit one-sided wording still overrides score.
+export const SAFE_SIMILARITY_THRESHOLD = 0.89;
+export const CAUTION_SIMILARITY_THRESHOLD = 0.82;
 export const RISK_WEIGHTS = { safe: 0, caution: 1, risky: 3 };
 
 const CLEARLY_ONE_SIDED_PATTERNS = {
@@ -19,10 +22,14 @@ const CLEARLY_ONE_SIDED_PATTERNS = {
   Termination: [
     /terminate.{0,100}without.{0,50}(payment|compensation)/i,
     /client may terminate.{0,100}(at any time|immediately).{0,100}freelancer may not/i,
+    /client may terminate.{0,100}(at any time|without cause).{0,180}(contractor|freelancer).{0,60}(may terminate only|only after|must give)/i,
+    /terminate.{0,120}refund.{0,100}(all amounts|completed work|approved work)/i,
   ],
   Liability: [
     /unlimited liability/i,
+    /liability.{0,40}(is|will be|remains) unlimited/i,
     /indemnif(?:y|ies).{0,120}(any and all|all claims).{0,100}regardless/i,
+    /indemnif(?:y|ies).{0,140}(every|all|any).{0,40}(claim|loss|damage).{0,200}(even when|regardless|caused partly by the client)/i,
     /client.{0,40}(has|assumes) no liability/i,
   ],
   Revisions: [
@@ -45,6 +52,15 @@ const CLEARLY_ONE_SIDED_PATTERNS = {
 };
 
 const NOTABLE_DEVIATION_PATTERNS = {
+  "Payment Terms": [
+    /\bpay\w*.{0,100}(?:45|60|forty-five|sixty) (?:calendar )?days/i,
+  ],
+  Termination: [
+    /automatically renews?.{0,180}(?:30|45|60|90|thirty|forty-five|sixty|ninety) days?.{0,100}notice/i,
+  ],
+  Liability: [
+    /contractor.{0,120}(?:indemnif|hold harmless).{0,100}client/i,
+  ],
   Revisions: [
     /\b(four|five|six|seven|eight|nine|ten|[4-9]|10) (?:included )?revision rounds?\b/i,
     /additional rounds?.{0,100}(half|one-half|50%).{0,50}(normal|standard|usual).{0,30}rate/i,
@@ -52,14 +68,18 @@ const NOTABLE_DEVIATION_PATTERNS = {
 };
 
 export function hasClearlyOneSidedLanguage(category, clauseText) {
+  const normalizedClause = clauseText?.replace(/\s+/g, " ").trim() ?? "";
+
   return (CLEARLY_ONE_SIDED_PATTERNS[category] ?? []).some((pattern) =>
-    pattern.test(clauseText),
+    pattern.test(normalizedClause),
   );
 }
 
 export function hasNotableDeviation(category, clauseText) {
+  const normalizedClause = clauseText?.replace(/\s+/g, " ").trim() ?? "";
+
   return (NOTABLE_DEVIATION_PATTERNS[category] ?? []).some((pattern) =>
-    pattern.test(clauseText),
+    pattern.test(normalizedClause),
   );
 }
 
