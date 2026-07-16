@@ -44,7 +44,7 @@ task: sentence similarity | query: Category: <category>
 Clause: <clause text>
 ```
 
-ClauseGuard uses Google's latest stable `gemini-embedding-2` model and requests
+Clause Guard uses Google's latest stable `gemini-embedding-2` model and requests
 768 dimensions. Google recommends 768 as one of the model's Matryoshka output
 sizes, and it fits pgvector's indexed `vector` type while keeping storage and
 similarity calculations modest. Gemini Embedding 2 normalizes truncated vectors

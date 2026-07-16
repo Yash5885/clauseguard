@@ -52,7 +52,7 @@ test("flagged explanations use schema-constrained comparison evidence and skip s
             {
               order_index: 2,
               baseline_comparison:
-                "This unusual clause type could not be compared with ClauseGuard's fair baseline.",
+                "This unusual clause type could not be compared with Clause Guard's fair baseline.",
               specific_deviation:
                 "Review it manually or with a qualified professional because no standard comparison is available.",
             },

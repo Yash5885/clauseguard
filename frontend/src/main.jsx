@@ -7,6 +7,18 @@ import "./index.css";
 
 const root = createRoot(document.getElementById("root"));
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const clerkLocalization = {
+  signIn: {
+    start: {
+      title: "Sign in to Clause Guard",
+    },
+  },
+  signUp: {
+    start: {
+      title: "Create your Clause Guard account",
+    },
+  },
+};
 
 if (!publishableKey) {
   root.render(
@@ -27,6 +39,7 @@ if (!publishableKey) {
     <StrictMode>
       <ClerkProvider
         afterSignOutUrl="/"
+        localization={clerkLocalization}
         publishableKey={publishableKey}
         signInFallbackRedirectUrl="/dashboard"
         signUpFallbackRedirectUrl="/dashboard"

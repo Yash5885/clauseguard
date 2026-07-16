@@ -13,7 +13,7 @@ async function startServer() {
   await ensureDatabaseSchema();
 
   server = app.listen(port, () => {
-    console.log(`ClauseGuard API listening on http://localhost:${port}`);
+    console.log(`Clause Guard API listening on http://localhost:${port}`);
   });
 }
 
@@ -30,6 +30,6 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
 startServer().catch((error) => {
-  console.error("Unable to start ClauseGuard API", error);
+  console.error("Unable to start Clause Guard API", error);
   process.exit(1);
 });

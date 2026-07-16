@@ -1,6 +1,6 @@
-# ClauseGuard
+# Clause Guard
 
-ClauseGuard is a desktop-first web application for clause-by-clause risk reviews of freelance contracts. This repository currently contains the project foundation, managed authentication, authenticated document text extraction, the researched fair-clause baseline, Gemini clause segmentation, pgvector similarity-based risk labeling, and grounded explanations for flagged clauses.
+Clause Guard is a desktop-first web application for clause-by-clause risk reviews of freelance contracts. This repository currently contains the project foundation, managed authentication, authenticated document text extraction, the researched fair-clause baseline, Gemini clause segmentation, pgvector similarity-based risk labeling, and grounded explanations for flagged clauses.
 
 ## Stack
 

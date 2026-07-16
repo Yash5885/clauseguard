@@ -18,7 +18,7 @@ app.use(express.json({ limit: "1mb" }));
 
 app.get("/", (_request, response) => {
   response.json({
-    name: "ClauseGuard API",
+    name: "Clause Guard API",
     health: "/api/health",
   });
 });

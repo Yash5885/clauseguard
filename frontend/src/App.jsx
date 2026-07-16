@@ -1,7 +1,5 @@
 import {
   Show,
-  SignIn,
-  SignUp,
   UserButton,
   useAuth,
   useUser,
@@ -14,6 +12,9 @@ import {
   Routes,
   useLocation,
 } from "react-router-dom";
+import LandingPage from "./components/landing/LandingPage.jsx";
+import SignInPage from "./pages/SignInPage.jsx";
+import SignUpPage from "./pages/SignUpPage.jsx";
 
 function LoadingState({ label = "Loading..." }) {
   return (
@@ -28,7 +29,7 @@ function AppHeader() {
     <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 lg:px-10">
         <Link className="text-lg font-semibold tracking-tight text-white" to="/">
-          ClauseGuard
+          Clause Guard
         </Link>
 
         <div className="flex items-center gap-3">
@@ -59,74 +60,6 @@ function AppHeader() {
         </div>
       </div>
     </header>
-  );
-}
-
-function LandingPage() {
-  return (
-    <main className="mx-auto flex min-h-[calc(100vh-73px)] max-w-6xl items-center px-6 py-16 lg:px-10">
-      <section className="max-w-3xl">
-        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-sm text-emerald-200">
-          <span className="h-2 w-2 rounded-full bg-emerald-300" />
-          Managed authentication ready
-        </span>
-        <h1 className="mt-7 text-5xl font-semibold tracking-tight text-white sm:text-7xl">
-          Understand the contract before you sign it.
-        </h1>
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-          This build step proves secure signup, login, logout, protected frontend
-          routing, and an authenticated API request backed by PostgreSQL.
-        </p>
-
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Show when="signed-out">
-            <Link
-              className="rounded-xl bg-emerald-300 px-5 py-3 font-medium text-slate-950 transition hover:bg-emerald-200"
-              to="/sign-up"
-            >
-              Create an account
-            </Link>
-            <Link
-              className="rounded-xl border border-white/15 px-5 py-3 font-medium text-white transition hover:bg-white/5"
-              to="/sign-in"
-            >
-              Log in
-            </Link>
-          </Show>
-
-          <Show when="signed-in">
-            <Link
-              className="rounded-xl bg-emerald-300 px-5 py-3 font-medium text-slate-950 transition hover:bg-emerald-200"
-              to="/dashboard"
-            >
-              Open dashboard
-            </Link>
-          </Show>
-        </div>
-      </section>
-    </main>
-  );
-}
-
-function AuthPage({ mode }) {
-  return (
-    <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-6 py-12">
-      {mode === "sign-in" ? (
-        <SignIn
-          fallbackRedirectUrl="/dashboard"
-          path="/sign-in"
-          routing="path"
-          signUpUrl="/sign-up"
-        />
-      ) : (
-        <SignUp
-          fallbackRedirectUrl="/dashboard"
-          path="/sign-up"
-          routing="path"
-          signInUrl="/sign-in"
-        />
-      )}
-    </main>
   );
 }
 
@@ -428,7 +361,7 @@ function DashboardPage() {
   return (
     <main className="mx-auto min-h-[calc(100vh-73px)] max-w-6xl px-6 py-14 lg:px-10">
       <p className="text-sm font-medium text-emerald-300">Protected route</p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-tight text-white">
+      <h1 className="font-display mt-2 text-4xl font-semibold tracking-[-0.02em] text-white">
         Welcome{user?.firstName ? `, ${user.firstName}` : ""}.
       </h1>
       <p className="mt-3 max-w-2xl text-slate-400">
@@ -484,13 +417,27 @@ function DashboardPage() {
 }
 
 function App() {
+  const location = useLocation();
+  const isLandingPage = location.pathname === "/";
+  const isAuthPage =
+    location.pathname.startsWith("/sign-in") ||
+    location.pathname.startsWith("/sign-up");
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <AppHeader />
+    <div
+      className={`min-h-screen ${
+        isLandingPage
+          ? "bg-[#f7f7f3] text-[#17191f]"
+          : isAuthPage
+            ? "bg-white text-[#1c1823]"
+          : "bg-slate-950 text-slate-100"
+      }`}
+    >
+      {!isLandingPage && !isAuthPage && <AppHeader />}
       <Routes>
         <Route element={<LandingPage />} path="/" />
-        <Route element={<AuthPage mode="sign-in" />} path="/sign-in/*" />
-        <Route element={<AuthPage mode="sign-up" />} path="/sign-up/*" />
+        <Route element={<SignInPage />} path="/sign-in/*" />
+        <Route element={<SignUpPage />} path="/sign-up/*" />
         <Route
           element={
             <ProtectedRoute>
