@@ -30,7 +30,6 @@ Requirements: Node.js 24+, pnpm 11+, and Docker Desktop.
 
 ```bash
 cp .env.example .env
-# Add the Clerk publishable and secret keys to .env.
 pnpm install
 docker compose up -d database
 pnpm dev
