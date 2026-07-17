@@ -89,8 +89,8 @@ database supports the required extension before the API deploy.
 1. Choose **New -> Web Service** and connect this GitHub repository.
 2. Select the production branch (normally `main`).
 3. Select the **Docker** runtime.
-4. Set Dockerfile path to `backend/Dockerfile` and Docker build context to the
-   repository root (`.`).
+4. Set **Root Directory** to `backend`. Render will use `backend/` as the build
+   context and automatically find its `Dockerfile`.
 5. Set the health check path to `/api/health`.
 6. Add every backend variable from the table above. Use Render's Internal
    Database URL for `DATABASE_URL` and `false` for `DATABASE_SSL`.
@@ -126,8 +126,8 @@ SELECT extname FROM pg_extension WHERE extname = 'vector';
 ### 2. Deploy the Express API
 
 1. In the same Railway project, add a service from this GitHub repository.
-2. Set the Dockerfile path to `/backend/Dockerfile` (repository root is the
-   build context).
+2. Set the service **Root Directory** to `backend`; Railway will use that
+   directory as the build context and find `backend/Dockerfile` there.
 3. Set `/api/health` as the health check path.
 4. Add every backend environment variable listed above. Reference the pgvector
    service's private database URL when possible.
@@ -146,8 +146,8 @@ service. Its environment already contains the production `DATABASE_URL` and
 `GEMINI_API_KEY`. Run:
 
 ```bash
-node backend/scripts/seedBaselineClauses.js
-node backend/scripts/generateBaselineEmbeddings.js
+node scripts/seedBaselineClauses.js
+node scripts/generateBaselineEmbeddings.js
 ```
 
 Both commands are idempotent. The first inserts the 128 fair baseline clauses;
