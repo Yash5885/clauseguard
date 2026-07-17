@@ -23,7 +23,8 @@ The public demo is a live, working Vercel deployment. Create an account, upload 
 
 ### Dashboard
 
-![Clause Guard dashboard](docs/screenshots/dashboard.png)
+<img width="2509" height="1303" alt="image" src="https://github.com/user-attachments/assets/5c0b4489-6b40-4e51-bb49-0811e626571d" />
+
 
 ### Clause results
 
