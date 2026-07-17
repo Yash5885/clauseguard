@@ -7,6 +7,7 @@ import {
   useLocation,
 } from "react-router-dom";
 import LandingPage from "./components/landing/LandingPage.jsx";
+import BrandLogo from "./components/BrandLogo.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import SignInPage from "./pages/SignInPage.jsx";
 import SignUpPage from "./pages/SignUpPage.jsx";
@@ -23,7 +24,11 @@ function AppHeader() {
   return (
     <header className="border-b border-white/10 bg-slate-950/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4 lg:px-10">
-        <Link className="text-lg font-semibold tracking-tight text-white" to="/">
+        <Link
+          className="flex items-center gap-3 text-lg font-semibold tracking-tight text-white"
+          to="/"
+        >
+          <BrandLogo className="h-10 w-10 rounded-xl ring-1 ring-white/15" />
           Clause Guard
         </Link>
 

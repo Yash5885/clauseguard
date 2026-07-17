@@ -1,6 +1,7 @@
 import { UserButton, useClerk } from "@clerk/react";
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import BrandLogo from "../BrandLogo.jsx";
 
 function Icon({ children, className = "" }) {
   return (
@@ -70,23 +71,6 @@ function FileIcon() {
   );
 }
 
-function LogoMark({ inverse = false }) {
-  return (
-    <span
-      className={`grid h-10 w-10 place-items-center rounded-xl border ${
-        inverse
-          ? "border-white/15 bg-white/10 text-white"
-          : "border-[#3f2a70]/10 bg-[#eee8ff] text-[#5e37b5]"
-      }`}
-    >
-      <Icon>
-        <path d="M6 3.5h8l4 4v13H6z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.7" />
-        <path d="M14 3.5V8h4M8.8 14l2 2 4.4-4.6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
-      </Icon>
-    </span>
-  );
-}
-
 function RailButton({ active = false, children, label, onClick }) {
   return (
     <button
@@ -135,7 +119,7 @@ function IconRail({ activeDocumentId, onNewReview, onSearch }) {
           }}
         />
         <Link aria-label="Clause Guard home" title="Clause Guard home" to="/">
-          <LogoMark inverse />
+          <BrandLogo className="h-10 w-10 rounded-xl ring-1 ring-white/15" />
         </Link>
       </div>
     </div>
@@ -197,7 +181,7 @@ function HistoryPanel({
     <div className="flex h-full min-w-0 flex-1 flex-col border-r border-[#e5e0e9] bg-[#f6f3f8]">
       <div className="border-b border-[#e5e0e9] px-5 pb-5 pt-6">
         <Link className="flex items-center gap-3 text-[#201b27]" to="/">
-          <LogoMark />
+          <BrandLogo className="h-10 w-10 rounded-xl ring-1 ring-[#3f2a70]/10" />
           <span className="font-bold tracking-[-0.02em]">Clause Guard</span>
         </Link>
         <button
@@ -369,7 +353,7 @@ export default function DashboardShell({
             <MenuIcon />
           </button>
           <Link className="flex items-center gap-2 text-sm font-bold" to="/">
-            <LogoMark />
+            <BrandLogo className="h-10 w-10 rounded-xl ring-1 ring-[#3f2a70]/10" />
             Clause Guard
           </Link>
           <UserButton />

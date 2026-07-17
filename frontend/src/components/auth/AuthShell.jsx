@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import BrandLogo from "../BrandLogo.jsx";
 import AuthIllustration from "./AuthIllustration.jsx";
 
 function Brand({ inverse = false }) {
@@ -10,18 +11,11 @@ function Brand({ inverse = false }) {
       }`}
       to="/"
     >
-      <span
-        className={`grid h-10 w-10 place-items-center rounded-xl border shadow-sm ${
-          inverse
-            ? "border-white/25 bg-white/15"
-            : "border-[#2c2140]/10 bg-[#f0ebff]"
+      <BrandLogo
+        className={`h-11 w-11 rounded-xl shadow-sm ${
+          inverse ? "ring-1 ring-white/25" : "ring-1 ring-[#2c2140]/10"
         }`}
-      >
-        <svg aria-hidden="true" className="h-5 w-5" fill="none" viewBox="0 0 24 24">
-          <path d="M6 3.5h8l4 4V20.5H6z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.7" />
-          <path d="M14 3.5V8h4M8.8 14l2 2 4.4-4.6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
-        </svg>
-      </span>
+      />
       <span>Clause Guard</span>
     </Link>
   );

@@ -1,31 +1,5 @@
 import { Link } from "react-router-dom";
-
-function BrandMark() {
-  return (
-    <span
-      aria-hidden="true"
-      className="relative grid h-9 w-9 place-items-center rounded-xl bg-[#17191f] shadow-[0_8px_20px_rgba(19,22,30,0.18)]"
-    >
-      <svg fill="none" viewBox="0 0 36 36" className="h-6 w-6">
-        <path
-          d="M10.2 7.5h10.9l5.3 5.4v15.6H10.2z"
-          fill="#F8F8F4"
-          stroke="#F8F8F4"
-          strokeLinejoin="round"
-          strokeWidth="1.5"
-        />
-        <path d="M21.1 7.5v5.7h5.3" stroke="#17191F" strokeWidth="1.5" />
-        <path
-          d="m14.2 20.2 2.5 2.4 5.3-5.4"
-          stroke="#8E9AB8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2.2"
-        />
-      </svg>
-    </span>
-  );
-}
+import BrandLogo from "../BrandLogo.jsx";
 
 export default function LandingHeader() {
   return (
@@ -35,7 +9,7 @@ export default function LandingHeader() {
         className="flex items-center gap-3 text-[17px] font-bold tracking-[-0.03em] text-[#17191f]"
         to="/"
       >
-        <BrandMark />
+        <BrandLogo className="h-10 w-10 rounded-xl shadow-[0_8px_20px_rgba(19,22,30,0.16)]" />
         Clause Guard
       </Link>
 
