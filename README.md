@@ -18,7 +18,8 @@ The public demo is a live, working Vercel deployment. Create an account, upload 
 
 ### Landing page
 
-![Clause Guard landing page](docs/screenshots/landing-page.png)
+![Clause Guard landing page](<img width="1944" height="1292" alt="image" src="https://github.com/user-attachments/assets/6b807730-6ab3-4b2e-a822-aa2bfefc4bcc" />
+
 
 ### Dashboard
 
